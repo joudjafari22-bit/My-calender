@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>تقويم المهام</title>
+
+<style>
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 10px;
+}
+
+header {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+button, select, input {
+  padding: 8px;
+  font-size: 14px;
+}
+
+.calendar-list {
+  margin-bottom: 15px;
+}
+
+.calendar {
+  margin-bottom: 25px;
+}
+
+.calendar-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.day {
+  background: white;
+  border: 1px solid #ddd;
+  height: 70px;
+  font-size: 12px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.day.checked {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+
+.day.special::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: red;
+  border-radius: 50%;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.today {
+  border: 2px solid #007aff;
+}
+
+.lang-toggle {
+  margin-left: auto;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <input id="calendarName" placeholder="اسم التقويم / Calendar name"/>
+  <button onclick="addCalendar()">➕ إضافة تقويم</button>
+
+  <select onchange="changeLang(this.value)" class="lang-toggle">
+    <option value="ar">العربية</option>
+    <option value="en">English</option>
+  </select>
+</header>
+
+<div id="calendars"></div>
+
+<script>
+// ---------- Language ----------
+let lang = localStorage.getItem("lang") || "ar";
+
+const text = {
+  ar: { days: ["أحد","إثن","ثلا","أرب","خم","جم","سب"] },
+  en: { days: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] }
+};
+
+function changeLang(l){
+  lang = l;
+  localStorage.setItem("lang", l);
+  renderAll();
+}
+
+// ---------- Calendars ----------
+let calendars = JSON.parse(localStorage.getItem("calendars")) || [];
+
+function addCalendar(){
+  const name = document.getElementById("calendarName").value.trim();
+  if(!name) return;
+  calendars.push({ name, days:{} });
+  save();
+  renderAll();
+  document.getElementById("calendarName").value="";
+}
+
+function save(){
+  localStorage.setItem("calendars", JSON.stringify(calendars));
+}
+
+// ---------- Hijri ----------
+function getHijri(date){
+  return new Intl.DateTimeFormat('ar-TN-u-ca-islamic', { day:'numeric', month:'numeric' }).format(date);
+}
+
+// ---------- Render ----------
+function renderAll(){
+  const container = document.getElementById("calendars");
+  container.innerHTML = "";
+
+  calendars.forEach((cal, cIndex)=>{
+    const div = document.createElement("div");
+    div.className = "calendar";
+
+    div.innerHTML = `<div class="calendar-title">${cal.name}</div>`;
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    text[lang].days.forEach(d=>{
+      const h = document.createElement("div");
+      h.style.fontWeight="bold";
+      h.style.textAlign="center";
+      h.innerText=d;
+      grid.appendChild(h);
+    });
+
+    const year = new Date().getFullYear();
+    const start = new Date(year,0,1);
+    const end = new Date(year,11,31);
+
+    for(let i=0;i<start.getDay();i++){
+      grid.appendChild(document.createElement("div"));
+    }
+
+    for(let d=start; d<=end; d.setDate(d.getDate()+1)){
+      const dateKey = d.toISOString().split("T")[0];
+      const cell = document.createElement("div");
+      cell.className = "day";
+      cell.innerHTML = `<div>${d.getDate()}</div><div>${getHijri(new Date(d))}</div>`;
+
+      if(cal.days[dateKey]?.checked) cell.classList.add("checked");
+      if(cal.days[dateKey]?.special) cell.classList.add("special");
+
+      const today = new Date().toISOString().split("T")[0];
+      if(dateKey === today) cell.classList.add("today");
+
+      cell.onclick = ()=>{
+        cal.days[dateKey] = cal.days[dateKey] || {};
+        cal.days[dateKey].checked = !cal.days[dateKey].checked;
+        save(); renderAll();
+      };
+
+      cell.oncontextmenu = (e)=>{
+        e.preventDefault();
+        cal.days[dateKey] = cal.days[dateKey] || {};
+        cal.days[dateKey].special = !cal.days[dateKey].special;
+        save(); renderAll();
+      };
+
+      grid.appendChild(cell);
+    }
+
+    div.appendChild(grid);
+    container.appendChild(div);
+  });
+}
+
+renderAll();
+</script>
+
+</body>
+</html>
